@@ -35,6 +35,9 @@ jobs:
           sudo apt-get install python3-pip
           pip3 install beautysh
 
-      # Execute defined hooks
+      # Execute all hooks in check mode against the default paths (src/).
+      # This uses the same entry point as local development so CI and local
+      # behaviour stay in sync.  You can pass extra flags here if needed,
+      # e.g. --include or --exclude to filter specific hooks.
       - name: Run all hooks
         run: ${GITHUB_WORKSPACE}/hooks/_run_all.sh

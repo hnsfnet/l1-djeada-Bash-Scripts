@@ -756,6 +756,33 @@ Edit the generated manifest to disable repositories or choose per-repository mod
 | 6 | Stretches a video vertically by a scale factor with proportional padding. | [stretch_mp4_vertically.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/stretch_mp4_vertically.sh) |
 | 7 | Encodes videos to 9:16 vertical shorts format with cropping, padding, and speed adjustment options. | [make_short.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/make_short.sh) |
 
+## Hooks / Code Quality Checks
+
+The repository ships with a set of hook scripts in the `hooks/` directory that automatically check and fix common issues in bash scripts (trailing whitespace, missing final newline, carriage returns, formatting via Beautysh + ShellCheck).
+
+### Quick Start
+
+```bash
+# Run all hooks against src/ (default)
+./hooks/_run_all.sh
+
+# Check specific directories or files
+./hooks/_run_all.sh src hooks
+
+# Only run certain hooks
+./hooks/_run_all.sh --include last_line_empty,remove_carriage_return
+
+# Exclude a slow hook
+./hooks/_run_all.sh --exclude beautify_script
+
+# Combine flags
+./hooks/_run_all.sh --include remove_trailing_whitespaces -- src/
+```
+
+The batch runner prints a pass/fail summary at the end and exits with code 1 if any check failed. See `hooks/README.md` for full option reference and individual hook documentation.
+
+The same `_run_all.sh` entry point is used in CI (`.github/workflows/blank.yml`), so local and CI behaviour stay aligned.
+
 ## References
 
 ### Official Documentation

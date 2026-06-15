@@ -12,15 +12,51 @@ The hooks are designed to automatically check and fix common issues in bash scri
 
 ## Usage
 
-### Running All Hooks
+### Running All Hooks (Batch Runner)
 
-To run all hooks in check mode (without modifying files):
+The recommended way to run hooks is through the batch entry point `_run_all.sh`:
 
 ```bash
+# Default: check all hooks against src/
 ./hooks/_run_all.sh
+
+# Check specific directories
+./hooks/_run_all.sh src hooks
+
+# Check a single file
+./hooks/_run_all.sh src/my_script.sh
+
+# Only run specific hooks
+./hooks/_run_all.sh --include last_line_empty,remove_carriage_return
+
+# Exclude slow hooks
+./hooks/_run_all.sh --exclude beautify_script
+
+# Combine filters and custom paths
+./hooks/_run_all.sh --include remove_trailing_whitespaces --exclude beautify_script -- src hooks
 ```
 
-This will execute all hooks with the `--check` option on the `src` directory. It will exit with status 1 if any checks fail.
+#### Options
+
+| Flag | Description |
+|------|-------------|
+| `-h`, `--help` | Show help message and exit |
+| `-p`, `--paths PATH ...` | One or more paths to check (can also be positional args) |
+| `-i`, `--include HOOK ...` | Only run these hooks (comma or space separated names) |
+| `-e`, `--exclude HOOK ...` | Skip these hooks (comma or space separated names) |
+
+Hook names can be given with or without the `.sh` suffix (e.g. `last_line_empty` or `last_line_empty.sh`).
+
+#### Summary Output
+
+At the end of each run, `_run_all.sh` prints a summary table showing:
+- How many checks ran in total
+- Which hook/path combinations passed
+- Which hook/path combinations failed (if any)
+- Which hooks were skipped due to filters
+- Overall pass/fail status
+
+The script exits with code 0 if all checks passed, 1 if any failed, or 2 on usage errors.
 
 ### Running Individual Hooks
 
@@ -68,7 +104,7 @@ Removes trailing whitespace characters (spaces or tabs) from the end of lines in
 
 ### CI/CD Integration
 
-These hooks are automatically run in the CI pipeline (see `.github/workflows/blank.yml`). The CI will fail if any checks don't pass.
+These hooks are automatically run in the CI pipeline (see `.github/workflows/blank.yml`). The CI uses the same `_run_all.sh` entry point with the same defaults as local development, so CI and local behaviour are consistent. The CI will fail if any checks don't pass.
 
 ### Git Pre-commit Hook (Optional)
 
@@ -86,19 +122,20 @@ This will automatically run all hooks before each commit. If any checks fail, th
 
 ## How It Works
 
-The scripts in this directory are actually symbolic links to the corresponding scripts in the `src` directory. This allows the same scripts to be used both as utility scripts and as hooks.
+The scripts in this directory are thin wrappers that delegate to the corresponding scripts in the `src` directory. This allows the same scripts to be used both as utility scripts and as hooks.
 
 The `_run_all.sh` script:
-1. Finds all symbolic links in the `hooks` directory (excluding files starting with `_`)
-2. Executes each script with the `--check` flag
-3. Collects the exit status of all scripts
-4. Exits with status 1 if any check failed
+1. Discovers all executable hook scripts in the `hooks` directory (excluding files starting with `_`)
+2. Applies `--include` / `--exclude` filters if given
+3. Executes each selected script with the `--check` flag against every specified path
+4. Prints a pass/fail summary at the end
+5. Exits with status 1 if any check failed, 0 otherwise
 
 ## Troubleshooting
 
 If a hook fails in CI or locally:
 
-1. Read the error message to understand which check failed
+1. Read the summary output to see which check(s) failed
 2. Run the specific hook without `--check` to automatically fix the issue:
    ```bash
    ./hooks/<hook_name>.sh src
