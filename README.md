@@ -585,7 +585,23 @@ shellcheck **/*.sh
 ```
 
 ## Available scripts
- 
+
+### Searching for scripts
+
+Instead of scrolling through the full list below, you can search for scripts directly from the command line:
+
+```bash
+./src/search_scripts.sh <keyword>        # Search by name or description keyword
+./src/search_scripts.sh backup           # Find backup-related scripts
+./src/search_scripts.sh line counter     # Multi-keyword search (best match first)
+./src/search_scripts.sh --list           # List all scripts in a compact table
+./src/search_scripts.sh --help           # Show help
+```
+
+The search tool automatically scans every `.sh` file in `src/` and reads the metadata from each script's header, so new scripts are picked up without any manual list maintenance.
+
+When a single script matches, the full usage details and examples are shown. When multiple scripts match, results are ranked by relevance (name match > description match > usage match).
+
 ### Intro
 
 | # | Description                                                         | Code                                                                                     |
@@ -743,6 +759,7 @@ Edit the generated manifest to disable repositories or choose per-repository mod
 | 14 | Fetches and displays current weather conditions for a specified city using the wttr.in service. | [display_weather.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/display_weather.sh) |
 | 15 | Converts Markdown files to PDF format with automatic page breaks and concatenation. | [generate_books.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/generate_books.sh) |
 | 16 | Displays an elapsed time counter in HH:MM:SS format, updated every second. | [timer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/timer.sh) |
+| 17 | Searches and browses scripts in the repository by keyword, with ranked results and auto-discovery of new scripts. | [search_scripts.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/search_scripts.sh) |
 
 ### Multimedia
 
