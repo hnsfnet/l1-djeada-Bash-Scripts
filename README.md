@@ -685,6 +685,76 @@ shellcheck **/*.sh
 | 19 | Completely removes Node.js and npm, then reinstalls them from the distribution package manager or nodejs.org.                        | [purge_and_reinstall_nodejs.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_and_reinstall_nodejs.sh) |
 | 20 | Safely uninstalls user-installed Python pip packages while preserving essential system packages.                                      | [purge_pip.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_pip.sh)                             |
 
+#### Filesystem backups with profiles
+
+`backup.sh` keeps its original behaviour: run it with no arguments for the
+interactive menu, or pass everything on the command line for a one-off,
+cron-friendly run. On top of that, frequently used setups can be saved as named
+**profiles** in an INI-style configuration file, so you no longer have to retype
+long command lines for each backup scheme.
+
+Put one or more `[profile]` sections in a config file. `--config` selects the
+file (otherwise `$BACKUP_CONFIG`, then `~/.config/backup/backup.conf`, then
+`~/.backup.conf` are searched), and `--profile` picks the section (defaulting to
+`default`). Supported keys are `source` (repeatable), `dest`, `exclude`
+(repeatable), `compress`, `encrypt`, `gpg_passphrase_file`, `gpg_passphrase`,
+`retention_daily`, `retention_weekly`, and `retention_monthly`. A leading `~` or
+`$HOME` is expanded, lines beginning with `#` or `;` are comments, and an
+unknown or malformed line produces a readable warning instead of a crash.
+
+```ini
+# ~/.config/backup/backup.conf
+
+[documents]
+source = ~/Documents
+source = ~/Notes
+dest = /mnt/backups/documents
+exclude = *.tmp
+exclude = *.cache
+compress = true
+retention_daily = 14
+retention_weekly = 8
+retention_monthly = 12
+
+[photos]
+source = ~/Pictures
+dest = /mnt/nas/photos
+compress = false
+retention_daily = 30
+
+[server-config]
+source = /etc
+source = /srv/app/config
+dest = /mnt/backups/server
+compress = true
+encrypt = true
+gpg_passphrase_file = ~/.config/backup/server.pass
+```
+
+Run a profile, override individual settings on the command line, or preview a
+run without touching the disk:
+
+```bash
+# Run the "documents" profile using the default config location
+./src/backup.sh --profile documents
+
+# Same profile, but send this run to a USB drive instead of the configured dest
+./src/backup.sh --profile documents --dest /mnt/usb
+
+# Use an explicit config file and preview what would happen (writes nothing)
+./src/backup.sh --config ~/.config/backup/backup.conf --profile photos --dry-run
+
+# Cron entry: nightly documents backup, quiet, no colour
+15 3 * * * BACKUP_CONFIG=$HOME/.config/backup/backup.conf /path/to/backup.sh --profile documents --auto --quiet --no-color
+```
+
+Command-line flags always win over profile values, so a profile holds the common
+case while ad-hoc flags cover the exceptions. Missing required fields (no
+`source` or no `dest`) fail with a clear message naming the profile. `--dry-run`
+reports the source paths that currently exist, the destination, the exact output
+artifact name, and whether the retention policy would remove any existing
+backups.
+
 ### Programming workflow
 
 | # | Description                                                                                                                                                                                                                    | Code                                                                                                           |

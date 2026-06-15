@@ -8,6 +8,10 @@
 #   ./backup.sh
 #   ./backup.sh --auto --source "$HOME/Documents" --dest /mnt/backups --compress
 #   ./backup.sh --auto --dest /mnt/backups --exclude '*.cache' --retention-daily 14
+#   ./backup.sh --profile documents                       # run a saved profile
+#   ./backup.sh --config ~/.config/backup/backup.conf --profile photos
+#   ./backup.sh --profile documents --dest /mnt/usb       # profile + CLI override
+#   ./backup.sh --profile documents --dry-run             # preview, write nothing
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -44,6 +48,33 @@ BACKUP_REQUESTED=false
 QUIET=false
 VERBOSE=false
 NO_COLOR=false
+DRY_RUN=false
+
+# Configuration profile support.
+CONFIG_FILE=""
+PROFILE_NAME=""
+WANT_PROFILE=false
+
+# Default config file search order when --config is omitted but a profile is
+# requested. The BACKUP_CONFIG environment variable takes precedence and is
+# convenient for cron jobs.
+DEFAULT_CONFIG_FILES=(
+    "${XDG_CONFIG_HOME:-$HOME/.config}/backup/backup.conf"
+    "$HOME/.backup.conf"
+)
+
+# Track which settings were given explicitly on the command line so that a
+# loaded profile only fills in the values the user did not override.
+CLI_SOURCE_SET=false
+CLI_EXCLUDE_SET=false
+CLI_DEST_SET=false
+CLI_COMPRESS_SET=false
+CLI_ENCRYPT_SET=false
+CLI_GPG_PASSPHRASE_SET=false
+CLI_GPG_PASSPHRASE_FILE_SET=false
+CLI_RETENTION_DAILY_SET=false
+CLI_RETENTION_WEEKLY_SET=false
+CLI_RETENTION_MONTHLY_SET=false
 
 CURRENT_ARTIFACT=""
 LOCK_DIR=""
@@ -124,6 +155,16 @@ Usage:
   $SCRIPT_NAME
   $SCRIPT_NAME --auto [options]
 
+Profile options:
+  --config FILE                 INI-style file holding one or more [profile]
+                                sections. When omitted but --profile is given,
+                                searches \$BACKUP_CONFIG and then:
+                                ${DEFAULT_CONFIG_FILES[*]}
+  --profile NAME                Load settings from the [NAME] section. Defaults
+                                to "default" when --config is given without it.
+  --dry-run                     Show the resolved sources, destination, output
+                                artifact, and retention effect without writing.
+
 Options:
   --source PATH                 Add a source file or directory to the backup.
                                 Can be used multiple times. Defaults to:
@@ -143,10 +184,25 @@ Options:
       --no-color                Disable colored log labels.
   -h, --help                    Show this help message.
 
+Command-line options override values loaded from a profile, so common setups
+can live in the config file while one-off runs tweak them on the fly.
+
+Config file format (one or more named profiles per file):
+  [documents]
+  source = ~/Documents
+  source = ~/Notes
+  dest = /mnt/backups/documents
+  exclude = *.tmp
+  compress = true
+  retention_daily = 14
+
 Examples:
   $SCRIPT_NAME --auto --dest /mnt/backups
   $SCRIPT_NAME --auto --source "\$HOME/Documents" --source "\$HOME/Pictures" --dest /mnt/backups --compress
   $SCRIPT_NAME --auto --dest /mnt/backups --compress --encrypt --gpg-passphrase-file ~/.config/backup.pass
+  $SCRIPT_NAME --profile documents
+  $SCRIPT_NAME --config ~/.config/backup/backup.conf --profile photos --dry-run
+  $SCRIPT_NAME --profile documents --dest /mnt/usb   # override the profile's dest
 EOF
 }
 
@@ -246,7 +302,7 @@ validate_configuration() {
     require_command mktemp
 
     [[ -n "$TARGET_DIR" ]] || die "Backup destination is required."
-    mkdir -p -- "$TARGET_DIR"
+    [[ "$DRY_RUN" == true ]] || mkdir -p -- "$TARGET_DIR"
 
     validate_retention_value "Daily retention" "$RETENTION_DAILY"
     validate_retention_value "Weekly retention" "$RETENTION_WEEKLY"
@@ -281,6 +337,178 @@ validate_configuration() {
     fi
 
     validate_backup_target
+}
+
+###############################################################################
+# Configuration profiles
+###############################################################################
+trim() {
+    local string="$1"
+    string="${string#"${string%%[![:space:]]*}"}"
+    string="${string%"${string##*[![:space:]]}"}"
+    printf '%s' "$string"
+}
+
+parse_bool() {
+    local value
+    value="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+    case "$value" in
+        true | yes | y | on | 1) printf 'true' ;;
+        false | no | n | off | 0) printf 'false' ;;
+        *) return 1 ;;
+    esac
+}
+
+# Expand a leading "~" and "$HOME"/"${HOME}" without evaluating arbitrary shell.
+expand_path_value() {
+    local value="$1"
+
+    if [[ "$value" == "~" ]]; then
+        value="$HOME"
+    elif [[ "$value" == "~/"* ]]; then
+        value="$HOME/${value#\~/}"
+    fi
+
+    value="${value//\$\{HOME\}/$HOME}"
+    value="${value//\$HOME/$HOME}"
+    printf '%s' "$value"
+}
+
+# Decide which configuration file and profile name to use.
+resolve_config() {
+    local candidate
+
+    [[ -n "$PROFILE_NAME" ]] || PROFILE_NAME="default"
+
+    if [[ -z "$CONFIG_FILE" ]]; then
+        if [[ -n "${BACKUP_CONFIG:-}" ]]; then
+            CONFIG_FILE="$BACKUP_CONFIG"
+        else
+            for candidate in "${DEFAULT_CONFIG_FILES[@]}"; do
+                if [[ -f "$candidate" ]]; then
+                    CONFIG_FILE="$candidate"
+                    break
+                fi
+            done
+        fi
+    fi
+
+    if [[ -z "$CONFIG_FILE" ]]; then
+        die "No configuration file found. Pass --config FILE or create one of: ${DEFAULT_CONFIG_FILES[*]}"
+    fi
+
+    [[ -f "$CONFIG_FILE" ]] || die "Configuration file not found: $CONFIG_FILE"
+    [[ -r "$CONFIG_FILE" ]] || die "Configuration file is not readable: $CONFIG_FILE"
+}
+
+# Parse a single [profile] section from the INI-style configuration file.
+# Command-line values always win, so a setting is only applied here when the
+# user did not already provide it on the command line.
+load_profile() {
+    local current_section="" in_target=false found=false line_no=0
+    local raw line key value bool
+    local -a available_profiles=()
+
+    log_msg DEBUG "Loading profile '$PROFILE_NAME' from $CONFIG_FILE"
+
+    [[ "$CLI_SOURCE_SET" == true ]] || SOURCE_DIRS=()
+    [[ "$CLI_EXCLUDE_SET" == true ]] || EXCLUDE_PATTERNS=()
+
+    while IFS= read -r raw || [[ -n "$raw" ]]; do
+        line_no=$((line_no + 1))
+        line="${raw%$'\r'}"
+        line="$(trim "$line")"
+
+        [[ -z "$line" ]] && continue
+        [[ "$line" == \#* || "$line" == \;* ]] && continue
+
+        if [[ "$line" =~ ^\[(.*)\]$ ]]; then
+            current_section="$(trim "${BASH_REMATCH[1]}")"
+            available_profiles+=("$current_section")
+            if [[ "$current_section" == "$PROFILE_NAME" ]]; then
+                in_target=true
+                found=true
+            else
+                in_target=false
+            fi
+            continue
+        fi
+
+        [[ "$in_target" == true ]] || continue
+
+        if [[ "$line" != *=* ]]; then
+            log_msg WARN "Ignoring malformed line $line_no in '$CONFIG_FILE': $line"
+            continue
+        fi
+
+        key="$(trim "${line%%=*}")"
+        value="$(trim "${line#*=}")"
+        value="$(expand_path_value "$value")"
+
+        case "$key" in
+            source)
+                [[ "$CLI_SOURCE_SET" == true ]] || SOURCE_DIRS+=("$value")
+                ;;
+            exclude)
+                [[ "$CLI_EXCLUDE_SET" == true ]] || EXCLUDE_PATTERNS+=("$value")
+                ;;
+            dest | destination)
+                [[ "$CLI_DEST_SET" == true ]] || TARGET_DIR="$value"
+                ;;
+            compress)
+                if [[ "$CLI_COMPRESS_SET" != true ]]; then
+                    bool="$(parse_bool "$value")" || die "Invalid boolean for 'compress' in profile '$PROFILE_NAME' (line $line_no): $value"
+                    COMPRESS="$bool"
+                fi
+                ;;
+            encrypt)
+                if [[ "$CLI_ENCRYPT_SET" != true ]]; then
+                    bool="$(parse_bool "$value")" || die "Invalid boolean for 'encrypt' in profile '$PROFILE_NAME' (line $line_no): $value"
+                    ENCRYPT="$bool"
+                fi
+                ;;
+            gpg_passphrase)
+                [[ "$CLI_GPG_PASSPHRASE_SET" == true ]] || GPG_PASSPHRASE="$value"
+                ;;
+            gpg_passphrase_file)
+                [[ "$CLI_GPG_PASSPHRASE_FILE_SET" == true ]] || GPG_PASSPHRASE_FILE="$value"
+                ;;
+            retention_daily)
+                [[ "$CLI_RETENTION_DAILY_SET" == true ]] || RETENTION_DAILY="$value"
+                ;;
+            retention_weekly)
+                [[ "$CLI_RETENTION_WEEKLY_SET" == true ]] || RETENTION_WEEKLY="$value"
+                ;;
+            retention_monthly)
+                [[ "$CLI_RETENTION_MONTHLY_SET" == true ]] || RETENTION_MONTHLY="$value"
+                ;;
+            *)
+                log_msg WARN "Unknown setting '$key' in profile '$PROFILE_NAME' (line $line_no); ignoring."
+                ;;
+        esac
+    done <"$CONFIG_FILE"
+
+    if [[ "$found" != true ]]; then
+        local profile_list="<none>"
+        if [[ ${#available_profiles[@]} -gt 0 ]]; then
+            printf -v profile_list '%s, ' "${available_profiles[@]}"
+            profile_list="${profile_list%, }"
+        fi
+        die "Profile '$PROFILE_NAME' not found in $CONFIG_FILE. Available profiles: ${profile_list}"
+    fi
+
+    log_msg INFO "Loaded profile '$PROFILE_NAME' from $CONFIG_FILE"
+}
+
+# Give friendly, specific errors when a profile is missing required fields.
+check_profile_completeness() {
+    if [[ ${#SOURCE_DIRS[@]} -eq 0 ]]; then
+        die "Profile '$PROFILE_NAME' defines no 'source' entries and none were provided via --source."
+    fi
+
+    if [[ -z "$TARGET_DIR" ]]; then
+        die "Profile '$PROFILE_NAME' defines no 'dest' and --dest was not provided."
+    fi
 }
 
 ###############################################################################
@@ -488,6 +716,9 @@ write_metadata() {
         printf 'backup_name=%s\n' "$(basename "$snapshot_dir")"
         printf 'created_at_utc=%s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
         printf 'host=%s\n' "$HOST_TAG"
+        if [[ "$WANT_PROFILE" == true ]]; then
+            printf 'profile=%s\n' "$PROFILE_NAME"
+        fi
         printf 'compress=%s\n' "$COMPRESS"
         printf 'encrypt=%s\n' "$ENCRYPT"
         printf 'retention_daily=%s\n' "$RETENTION_DAILY"
@@ -592,6 +823,7 @@ apply_retention_policy() {
     local target_dir="$1"
     local now_epoch daily_cutoff weekly_cutoff monthly_cutoff
     local item name base_name stamp epoch week_key month_key
+    local removed=0
     local -a candidates=() entries=()
     declare -A kept_weeks=()
     declare -A kept_months=()
@@ -610,7 +842,12 @@ apply_retention_policy() {
         [[ -n "$item" ]] && candidates+=("$item")
     done < <(find "$target_dir" -mindepth 1 -maxdepth 1 \( -type f -o -type d \) -name 'backup_*' -printf '%f\n')
 
-    [[ ${#candidates[@]} -gt 0 ]] || return 0
+    if [[ ${#candidates[@]} -eq 0 ]]; then
+        if [[ "$DRY_RUN" == true ]]; then
+            log_msg INFO "Dry run: no existing backups present to evaluate for retention."
+        fi
+        return 0
+    fi
 
     for name in "${candidates[@]}"; do
         base_name="$(backup_base_name "$name")"
@@ -649,16 +886,80 @@ apply_retention_policy() {
             fi
         fi
 
+        removed=$((removed + 1))
+        if [[ "$DRY_RUN" == true ]]; then
+            log_msg INFO "Would remove expired backup: ${target_dir%/}/$name"
+            continue
+        fi
+
         log_msg INFO "Removing expired backup: ${target_dir%/}/$name"
         target_dir=${target_dir%/}
         rm -rf -- "${target_dir:?}/$name"
     done
+
+    if [[ "$DRY_RUN" == true ]]; then
+        if ((removed > 0)); then
+            log_msg INFO "Dry run: $removed expired backup(s) would be removed by the retention policy."
+        else
+            log_msg INFO "Dry run: no expired backups would be removed by the retention policy."
+        fi
+    fi
+}
+
+render_dry_run_plan() {
+    local timestamp backup_name artifact source existing=0
+
+    timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    backup_name="backup_${timestamp}_${HOST_TAG}"
+
+    log_msg INFO "Dry run enabled: no files will be written."
+    if [[ "$WANT_PROFILE" == true ]]; then
+        log_msg INFO "Profile: $PROFILE_NAME (from $CONFIG_FILE)"
+    fi
+
+    log_msg INFO "Source paths that would be processed:"
+    for source in "${SOURCE_DIRS[@]}"; do
+        if [[ -e "$source" ]]; then
+            log_msg INFO "  include : $source"
+            existing=$((existing + 1))
+        else
+            log_msg WARN "  skip    : $source (does not exist)"
+        fi
+    done
+    log_msg INFO "$existing of ${#SOURCE_DIRS[@]} configured source path(s) currently exist."
+
+    log_msg INFO "Destination directory: ${TARGET_DIR%/}"
+
+    if [[ "$COMPRESS" == true && "$ENCRYPT" == true ]]; then
+        artifact="${backup_name}.tar.gz.gpg"
+    elif [[ "$COMPRESS" == true ]]; then
+        artifact="${backup_name}.tar.gz"
+    elif [[ "$ENCRYPT" == true ]]; then
+        artifact="${backup_name}.tar.gpg"
+    else
+        artifact="${backup_name}/ (uncompressed snapshot directory)"
+    fi
+    log_msg INFO "Output artifact: ${TARGET_DIR%/}/$artifact"
+    log_msg INFO "Compression: $COMPRESS | Encryption: $ENCRYPT"
+    log_msg INFO "Retention policy: daily=$RETENTION_DAILY weekly=$RETENTION_WEEKLY monthly=$RETENTION_MONTHLY"
+
+    if [[ -d "$TARGET_DIR" ]]; then
+        apply_retention_policy "$TARGET_DIR"
+    else
+        log_msg INFO "Destination does not exist yet; no existing backups to clean."
+    fi
 }
 
 create_backup() {
     local timestamp backup_name snapshot_dir source copied_count=0
 
     validate_configuration
+
+    if [[ "$DRY_RUN" == true ]]; then
+        render_dry_run_plan
+        return 0
+    fi
+
     create_lock
 
     timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -783,61 +1084,90 @@ load_defaults_if_needed() {
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --config)
+                [[ -n "${2-}" ]] || die "--config requires a path."
+                CONFIG_FILE="$2"
+                WANT_PROFILE=true
+                BACKUP_REQUESTED=true
+                shift 2
+                ;;
+            --profile)
+                [[ -n "${2-}" ]] || die "--profile requires a name."
+                PROFILE_NAME="$2"
+                WANT_PROFILE=true
+                BACKUP_REQUESTED=true
+                shift 2
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                BACKUP_REQUESTED=true
+                shift
+                ;;
             --source)
                 [[ -n "${2-}" ]] || die "--source requires a path."
                 SOURCE_DIRS+=("$2")
+                CLI_SOURCE_SET=true
                 BACKUP_REQUESTED=true
                 shift 2
                 ;;
             --dest)
                 [[ -n "${2-}" ]] || die "--dest requires a directory."
                 TARGET_DIR="$2"
+                CLI_DEST_SET=true
                 BACKUP_REQUESTED=true
                 shift 2
                 ;;
             --exclude)
                 [[ -n "${2-}" ]] || die "--exclude requires a pattern."
                 EXCLUDE_PATTERNS+=("$2")
+                CLI_EXCLUDE_SET=true
                 BACKUP_REQUESTED=true
                 shift 2
                 ;;
             --compress)
                 COMPRESS=true
+                CLI_COMPRESS_SET=true
                 BACKUP_REQUESTED=true
                 shift
                 ;;
             --encrypt)
                 ENCRYPT=true
+                CLI_ENCRYPT_SET=true
                 BACKUP_REQUESTED=true
                 shift
                 ;;
             --gpg-passphrase)
                 [[ -n "${2-}" ]] || die "--gpg-passphrase requires a value."
                 GPG_PASSPHRASE="$2"
+                CLI_GPG_PASSPHRASE_SET=true
                 BACKUP_REQUESTED=true
                 shift 2
                 ;;
             --gpg-passphrase-file)
                 [[ -n "${2-}" ]] || die "--gpg-passphrase-file requires a path."
                 GPG_PASSPHRASE_FILE="$2"
+                CLI_GPG_PASSPHRASE_FILE_SET=true
                 BACKUP_REQUESTED=true
                 shift 2
                 ;;
             --retention-daily)
                 [[ -n "${2-}" ]] || die "--retention-daily requires a value."
                 RETENTION_DAILY="$2"
+                CLI_RETENTION_DAILY_SET=true
                 BACKUP_REQUESTED=true
                 shift 2
                 ;;
             --retention-weekly)
                 [[ -n "${2-}" ]] || die "--retention-weekly requires a value."
                 RETENTION_WEEKLY="$2"
+                CLI_RETENTION_WEEKLY_SET=true
                 BACKUP_REQUESTED=true
                 shift 2
                 ;;
             --retention-monthly)
                 [[ -n "${2-}" ]] || die "--retention-monthly requires a value."
                 RETENTION_MONTHLY="$2"
+                CLI_RETENTION_MONTHLY_SET=true
                 BACKUP_REQUESTED=true
                 shift 2
                 ;;
@@ -928,8 +1258,17 @@ main_menu() {
 ###############################################################################
 parse_args "$@"
 
+if [[ "$WANT_PROFILE" == true ]]; then
+    resolve_config
+    load_profile
+fi
+
 if [[ "$AUTO_MODE" == true || "$BACKUP_REQUESTED" == true ]]; then
-    load_defaults_if_needed
+    if [[ "$WANT_PROFILE" == true ]]; then
+        check_profile_completeness
+    else
+        load_defaults_if_needed
+    fi
     create_backup
     exit 0
 fi
