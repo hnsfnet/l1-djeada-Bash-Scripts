@@ -1,0 +1,809 @@
+[![GitHub stars](https://img.shields.io/github/stars/djeada/Bash-scripts)](https://github.com/djeada/Bash-scripts/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/djeada/Bash-scripts)](https://github.com/djeada/Bash-scripts/network)
+[![GitHub license](https://img.shields.io/github/license/djeada/Bash-scripts)](https://github.com/djeada/Bash-scripts/blob/master/LICENSE)
+[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)]( )
+
+# Bash-scripts
+A collection of Bash scripts for automating routine tasks and streamlining your workflow. From simple file renaming to more complex deployments, these Bash scripts have you covered.
+
+![Screenshot](https://user-images.githubusercontent.com/37275728/186024435-7edf1be2-ca64-4841-98bf-d07cbb362715.png)
+
+## About Bash
+
+Bash (Bourne Again SHell) is an essential component of Unix-like operating systems. It's a powerful scripting language and command interpreter that has evolved from its predecessors in the Unix world. Here's an overview:
+
+### Historical Background
+
+The origin of scripting languages can be traced back to their initial role as enhancements to command interpreters within operating systems. These early scripting tools were designed to automate repetitive tasks, streamline workflows, and improve the efficiency of system administration. 
+
+One of the first significant developments in this area was the creation of the **Bourne Shell (sh)** in the 1970s. Developed by Stephen Bourne at AT&T’s Bell Labs, it became the standard command interpreter for Unix systems, setting the foundation for future shell environments with its powerful scripting capabilities and control structures.
+
+Building upon the Bourne Shell’s framework, the **Bash (Bourne Again SHell)** was introduced in 1989 as part of the GNU Project. Designed as a free software replacement for the Bourne Shell, Bash incorporated numerous enhancements, including improved scripting features, better error handling, and additional programming constructs. Today, Bash is the most widely used Unix shell, favored for its versatility and robust functionality across Unix-like operating systems, including Linux and macOS.
+
+In addition to Bash, several other Unix shells have been developed over time, each offering unique features tailored to different user preferences and system requirements. These include the **C Shell (csh)**, which introduced C-like syntax; the **TENEX C Shell (tcsh)**, an enhanced version of csh with improved interactive features; the lightweight **Dash (Debian Almquist Shell)**, optimized for speed and minimal resource usage; the **Korn Shell (ksh)**, known for its advanced scripting capabilities and compatibility with both Bourne and C shell syntax; and the highly customizable **Z Shell (zsh)**, which combines features from multiple shells and offers extensive configurability for power users.
+
+### Purpose of Shell Scripts
+- Shell scripts are invaluable for repetitive command sequences by **automating** tasks, particularly in programming and server administration, especially for file and directory operations, text processing, and network configuration.
+- Bash and other scripting languages incorporate features like variables, conditional statements, loops, arrays, and functions, providing more **sophisticated** control flow.
+- The true strength of shell scripting lies in its ability to **utilize** the vast array of Unix commands.
+- When scripts become overly complex for Bash, transitioning to more powerful languages like **Python** is advisable.
+- Bash scripts can be used to integrate or 'glue' together complex scripts written in languages such as **Python**.
+
+### Limitations of Bash
+- Bash is not well-suited for developing **complex** applications.
+- It's not designed for building **GUI** applications.
+- Bash scripts may not be **portable** across different operating systems without modification.
+- It's less efficient for **complex** calculations compared to languages like Python.
+- Bash has limitations in handling advanced **network** programming tasks.
+  
+### "Hello World" in Bash
+
+A basic example of a Bash script is the famous "Hello World". It demonstrates how to output text to the console.
+
+```bash
+#!/usr/bin/env bash
+echo "Hello world"
+```
+
+### Executing a script 
+
+To execute a Bash script, you need to make it executable and then run it from the terminal. Here's how you can do it:
+
+```bash
+chmod u+x filename.sh  # Make the script executable
+./filename.sh          # Execute the script
+```
+
+### The Shebang
+
+The shebang (`#!`) line at the beginning of a script is crucial for defining the script's interpreter. It's more than just a convention; it's an essential aspect of script execution in Unix-like systems. Here's an expanded view:
+  
+Example Shebang for Bash:
+
+```bash
+#!/usr/bin/env bash
+```
+
+Execution Contexts
+
+- When a script is executed directly from a terminal, the shebang's specified **interpreter** is used. Example: `./filename.sh`
+- If the script is invoked from another shell script, the parent script's **interpreter** is used, and the shebang in the child script is ignored.
+- When a script is executed with an explicit interpreter command (like `bash ./filename.sh`), the shebang line is **bypassed**.
+
+Shebang in Other Languages
+
+- The shebang is not limited to Bash scripts, as it is used in various scripting languages to specify their respective **interpreters**.
+- An example of a shebang for Perl is `#!/usr/bin/env perl`.
+- An example of a shebang for Python is `#!/usr/bin/env python3`.
+
+### Variables 
+  
+Variables in Bash are not just simple placeholders for values; they can be used in more complex ways:
+
+- To assign a value to a **variable**, you use `var="Test"`.
+- To retrieve the value stored in a variable, you use `$var` or `${var}`.
+- Bash supports explicitly defining variable types such as integers and **arrays**.
+
+```bash
+declare -i var    # 'var' is an integer
+declare -a arr    # 'arr' is an array
+declare -r var2=5 # 'var2' is a read-only variable
+```
+
+- Bash allows storing the output of a command in a **variable** using command substitution, like `var=$(whoami)`.
+- Environment variables are global and can be accessed by any process running in the shell **session**, such as `PATH`, `HOME`, and `USER`.
+- To make a variable available to child processes, it needs to be **exported** using `export var`.
+- Variables in functions can be made local to avoid affecting the global **scope**.
+
+```bash
+function myFunc() {
+    local localVar="value"
+}
+```
+
+### Command Line Arguments in Bash
+
+Command line arguments in Bash scripts are accessed using special variables:
+
+- `$1` represents the first **argument** passed to the script.
+- `$@` is an array-like construct that holds all command line **arguments**.
+- `$#` gives the number of command line arguments **passed**.
+- `$?` contains the exit status of the last executed **command**.
+
+### If Statements in Bash
+
+If statements in Bash are crucial for decision-making processes based on conditions.
+
+Basic Syntax:
+
+```bash
+if [ condition ]; then
+  # commands
+fi
+```
+
+- **Integer Comparisons**: Use specific operators for comparing integer values.
+
+```bash
+if [ $i -eq 10 ]; then echo True; fi  # Integer comparison
+```
+
+- **String Comparisons**: Strings are compared differently from integers.
+
+```bash
+if [ "$name" == "10" ]; then echo True; fi  # String comparison
+```
+
+Operators for Integer Comparison
+
+| Operator | Description |
+| --- | --- |
+| `-eq` | equal |
+| `-ne` | not equal |
+| `-gt` | greater than |
+| `-ge` | greater than or equal to |
+| `-lt` | less than |
+| `-le` | less than or equal to |
+
+Operators for String Comparison
+
+| Operator | Description |
+| --- | --- |
+| `==` | equal |
+| `!=` | not equal |
+| `>` | greater than |
+| `<` | less than |
+| `-n` | string is not null |
+| `-z` | string is null |
+
+Single vs Double Square Brackets:
+
+- Single brackets `[ ]` are compatible with POSIX shell and suitable for basic **tests**.
+- Double brackets `[[ ]]` are used in Bash and other shells like Zsh and Ksh to offer enhanced test **constructs**.
+  - They support logical operators like `||` and regex matching with `=~`.
+  - They do not perform word splitting or filename **expansion**.
+
+Filename Expansion Example:
+
+- No Globbing with Double Brackets:
+
+```bash
+if [[ -f *.csv ]]; then echo True; fi  # Checks for a file named "*.csv"
+```
+
+- Globbing with Single Brackets:
+
+```bash
+if [ -f *.csv ]; then echo True; fi  # Performs filename expansion
+```
+
+### Loops
+
+Loops are used in Bash to execute a series of commands multiple times. There are several types of loops, each serving different purposes.
+
+#### For Loop
+
+The `for` loop is used to iterate over a list of items or a range of values.
+
+Syntax:
+
+```bash
+for var in list; do
+  # commands
+done
+```
+
+Example with a List:
+
+```bash
+for i in 1 2 3; do
+  echo $i
+done
+```
+
+Example with a Range:
+
+```bash
+for i in {1..3}; do
+  echo $i
+done
+```
+
+Example with Command Output:
+
+```bash
+for file in $(ls); do
+  echo $file
+done
+```
+
+#### While Loop
+
+The while loop executes as long as a specified condition is true.
+
+Syntax:
+
+```bash
+while [ condition ]; do
+  # commands
+done
+```
+
+Example:
+
+```bash
+i=1
+while [ $i -le 3 ]; do
+  echo $i
+  ((i++))
+done
+```
+
+#### Until Loop
+
+The until loop is similar to the while loop but runs until a condition becomes true.
+
+Syntax:
+
+```bash
+until [ condition ]; do
+  # commands
+done
+```
+
+Example:
+
+```bash
+i=1
+until [ $i -gt 3 ]; do
+  echo $i
+  ((i++))
+done
+```
+
+#### Loop Control: Break and Continue
+
+- **break**: Exits the loop.
+
+```bash
+for i in 1 2 3 4 5; do
+  if [ $i -eq 3 ]; then
+    break
+  fi
+  echo $i
+done
+```
+
+- **continue**: Skips the rest of the loop iteration and continues with the next one.
+
+```bash
+for i in 1 2 3 4 5; do
+  if [ $i -eq 3 ]; then
+    continue
+  fi
+  echo $i
+done
+```
+
+#### C-Style For Loop
+
+Bash also supports a C-style syntax for for loops, which provides more control over the iteration process.
+
+Syntax:
+
+```bash
+for (( initialisation; condition; increment )); do
+  # commands
+done
+```
+
+Example:
+
+```bash
+for (( i=1; i<=3; i++ )); do
+  echo $i
+done
+```
+
+### Arrays
+
+An array is a variable that holds an ordered list of values. The values are separated by spaces. The following example creates an array named `array` and assigns the values 1, 2, 3, 4, 5 to it:
+
+```bash
+array=(1 2 3 4 5) 
+```
+
+It is possible to create an array with specified element indices:
+
+```bash
+array=([3]='elem_a' [4]='elem_b')
+```
+
+To insert an elementat (e.g. 'abc') at a given index (e.g. 2) in the array, use the following syntax:
+
+```bash
+array=("${array[@]:0:2}" 'new' "${array[@]:2}")
+```
+
+To iterate over the elements of an array, use the following syntax:
+
+```bash
+items=('item_1' 'item_2' 'item_3' 'item_4')
+
+for item in "${items[@]}"; do
+  echo "$item"
+done
+# => item_1
+# => item_2
+# => item_3
+# => item_4
+```
+  
+It is often useful to print the elements of an array on a single line. The following code will print the elements of the array on a single line:
+
+```bash
+echo "${array[*]}"
+```
+
+### Functions
+
+Functions are used to group a sequence of commands into a single unit. They are used to perform repetitive tasks. Functions can be called from anywhere in the script. The following example creates a function named `hello_world` that prints the string `Hello World` to the standard output (stdout):
+
+```bash
+hello_world()
+{
+  echo "Hello World!"
+}
+```
+
+To call the function, use the following syntax:
+
+```bash
+hello_world
+```
+
+The above function does not take any arguments and does not explicitly return a value. It is possible to pass any number of arguments to the function. It is also possible to return a value from the function, but only an integer from range [0,255] is allowed.
+
+Here is a complete example of a script that defines and uses a function to sum two numbers:
+
+```bash
+#!/usr/bin/env bash
+
+sum_two() 
+{
+    return $(($1 + $2))
+}
+
+sum_two 5 3
+echo $?
+```
+
+### Pipes
+
+The pipe is used to pass the output of one command as input to the next:
+
+```bash
+ps -x | grep chromium
+```
+
+### Redirections
+
+But what if you'd want to save the results to a file? Bash has a redirect operator > that may be used to control where the output is delivered.
+
+```bash
+some_command > out.log            # Redirect stdout to out.log
+some_command 2> err.log           # Redirect stderr to file err.log
+some_command 2>&1                 # Redirect stderr to stdout
+some_command 1>/dev/null 2>&1     # Silence both stdout and stderr
+```
+  
+Complete summary:
+  
+| Syntax     | StdOut visibility | StdErr visibility | StdOut in file | StdErr in file | existing file |
+| --------   | ----------------- | ----------------- | -------------- | -------------- | ------------- |
+| `>`          |   no              |   yes             |   yes          |   no           |  overwrite    |
+| `>>`         |   no              |   yes             |   yes          |   no           |  append       |
+| `2>`         |   yes             |   no              |   no           |   yes          |  overwrite    |
+| `2>>`        |   yes             |   no              |   no           |   yes          |  append       |  
+| `&>`         |   no              |   no              |   yes          |   yes          |  overwrite    |    
+| `&>>`        |   no              |   no              |   yes          |   yes          |  append       |  
+| `tee`        |   yes             |   yes             |   yes          |   no           |  overwrite    |  
+| `tee -a`     |   yes             |   yes             |   yes          |   no           |  append       |
+| `n.e. (*)`   |   yes             |   yes             |   no           |   yes          |  overwrite    |  
+| `n.e. (*)`   |   yes             |   yes             |   no           |   yes          |  append       |
+| `\|& tee`    |   yes             |   yes             |   yes          |   yes          |  overwrite    |
+| `\|& tee -a` |   yes             |   yes             |   yes          |   yes          |  append       |  
+
+### Tilde expansion: `~`
+
+`~` expands to the current user’s home directory.
+
+```bash
+cd ~
+```
+
+Example result:
+
+```bash
+cd /home/alex
+```
+
+You can also use it with paths:
+
+```bash
+ls ~/Documents
+```
+
+### Brace expansion: `{...}`
+
+Brace expansion generates multiple strings from a pattern.
+
+```bash
+echo file{1,2,3}.txt
+```
+
+Output:
+
+```bash
+file1.txt file2.txt file3.txt
+```
+
+Useful for creating multiple files:
+
+```bash
+touch notes{1,2,3}.txt
+```
+
+You can also use ranges:
+
+```bash
+echo {a..e}
+```
+
+Output:
+
+```bash
+a b c d e
+```
+
+### Parameter expansion: `${...}`
+
+Parameter expansion gets or modifies the value of a variable.
+
+```bash
+name="Sam"
+echo ${name}
+```
+
+Output:
+
+```bash
+Sam
+```
+
+Useful when joining variables with other text:
+
+```bash
+file="report"
+echo ${file}.txt
+```
+
+Output:
+
+```bash
+report.txt
+```
+
+You can also provide a default value:
+
+```bash
+echo ${username:-Guest}
+```
+
+If `username` is not set, output is:
+
+```bash
+Guest
+```
+
+### Command substitution: `$(...)`
+
+Command substitution runs a command and replaces it with the command’s output.
+
+```bash
+today=$(date)
+echo "Today is $today"
+```
+
+Example output:
+
+```bash
+Today is Tue May 5 10:30:00 UTC 2026
+```
+
+Another example:
+
+```bash
+files=$(ls)
+echo "$files"
+```
+
+### Arithmetic expansion: `$((...))`
+
+Arithmetic expansion performs math calculations.
+
+```bash
+echo $((2 + 3))
+```
+
+Output:
+
+```bash
+5
+```
+
+You can use variables too:
+
+```bash
+x=10
+y=4
+echo $((x * y))
+```
+
+Output:
+
+```bash
+40
+```
+
+Useful in scripts:
+
+```bash
+count=5
+count=$((count + 1))
+echo $count
+```
+
+Output:
+
+```bash
+6
+```
+
+### Formatting and linting
+
+It is important to keep the formatting of your script as consistent as possible. <a href="https://github.com/lovesegfault/beautysh">Beautysh</a> is an amazing tool that helps you to format your script. To use it, just run the following command in a directory where your scripts are located:
+
+```bash
+beautysh **/*.sh
+```
+  
+Additionally we advise to use <a href="https://github.com/koalaman/shellcheck">shellcheck</a> for code inspection.
+
+```bash
+shellcheck **/*.sh
+```
+
+## Available scripts
+ 
+### Intro
+
+| # | Description                                                         | Code                                                                                     |
+|---|---------------------------------------------------------------------|------------------------------------------------------------------------------------------|
+| 1 | Prints "Hello, world!" to the console.                              | [hello_world.sh](https://github.com/djeada/Bash-scripts/blob/master/src/hello_world.sh) |
+| 2 | Demonstrates the use of if statements to check conditions.          | [conditionals.sh](https://github.com/djeada/Bash-scripts/blob/master/src/conditionals.sh) |
+| 3 | Shows the use of a while loop to repeatedly execute code.            | [while_loop.sh](https://github.com/djeada/Bash-scripts/blob/master/src/while_loop.sh) |
+| 4 | Demonstrates the use of a for loop to iterate over elements.         | [for_loop.sh](https://github.com/djeada/Bash-scripts/blob/master/src/for_loop.sh) |
+| 5 | Displays the digits of a given number, one digit per line.           | [digits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/digits.sh) |
+| 6 | Prints all of the numbers within a specified range, one number per line. | [numbers_in_interval.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/numbers_in_interval.sh) |
+| 7 | Prints a Christmas tree pattern to the console.                       | [christmas_tree.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/christmas_tree.sh) |
+| 8 | Prompts the user for a response to a given question and stores their response in a variable. | [prompt_for_answer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/prompt_for_answer.sh) |
+| 9 | Displays an animated progress bar in the terminal with percentage completion. | [progress_bar.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/progress_bar.sh) |
+| 10 | Displays animated Matrix-style falling characters in the terminal. | [matrix_display.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/matrix_display.sh) |
+
+### Math
+
+| # | Description                                                                                                      | Code                                                                                                |
+|---|------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| 1 | Performs basic arithmetic operations (addition, subtraction, multiplication, and division) on two numbers.      | [arithmetic_operations.sh](https://github.com/djeada/Bash-scripts/blob/master/src/arithmetic_operations.sh) |
+| 2 | Calculates the sum of all the arguments passed to it, treating them as numbers.                                  | [sum_args.sh](https://github.com/djeada/Bash-scripts/blob/master/src/sum_args.sh)                     |
+| 3 | Converts a number from the decimal (base 10) system to its equivalent in the binary (base 2) system.             | [decimal_binary.sh](https://github.com/djeada/Bash-scripts/blob/master/src/decimal_binary.sh)           |
+| 4 | Calculates the factorial of a given integer.                                                                    | [factorial.sh](https://github.com/djeada/Bash-scripts/blob/master/src/factorial.sh)                     |
+| 5 | Determines whether a given number is a prime number or not.                                                     | [is_prime.sh](https://github.com/djeada/Bash-scripts/blob/master/src/is_prime.sh)                       |
+| 6 | Calculates the square root of a given number.                                                                   | [sqrt.sh](https://github.com/djeada/Bash-scripts/blob/master/src/sqrt.sh)                               |
+| 7 | Calculates the sum of all integers smaller than a given number.                                                  | [sum_smaller_numbers.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/sum_smaller_numbers.sh)  |
+
+
+### Strings
+
+| # | Description                                                                                                                 | Code                                                                                               |
+|---|---------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| 1 | Counts the number of times a specific character appears in a given string.                                                      | [count_char.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/count_char.sh)             |
+| 2 | Converts all uppercase letters in a given string to lowercase.                                                                  | [lower.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/lower.sh)                       |
+| 3 | Converts all lowercase letters in a given string to uppercase.                                                                  | [upper.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/upper.sh)                       |
+| 4 | Checks if a given string is a palindrome, i.e., a word that is spelled the same way forwards and backwards.                   | [is_palindrome.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/is_palindrome.sh)      |
+| 5 | Checks if two given strings are anagrams, i.e., if they are made up of the same letters rearranged in a different order.       | [are_anagrams.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/are_anagrams.sh)        |
+| 6 | Calculates the Hamming Distance between two strings, i.e., the number of positions at which the corresponding characters are different. | [hamming_distance.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/hamming_distance.sh) |
+| 7 | Sorts a given string alphabetically, considering all letters to be lowercase.                                                  | [sort_string.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/sort_string.sh)          |
+| 8 | Analyzes text to generate word frequency histograms, with optional minimum word length filtering and JSON output. | [word_histogram.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/word_histogram.sh)    |
+| 9 | Converts HTML table markup to Markdown table format. | [html_table_to_markdown.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/html_table_to_markdown.sh) |
+| 10 | Removes leading spaces and tabs from each line in a file or piped input. | [remove_leading_whitespace.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_leading_whitespace.sh) |
+
+
+### Arrays
+
+| # | Description                                                                                                  | Code                                                                                                   |
+|---|--------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| 1 | Calculates the arithmetic mean of a given list of numbers.                                                    | [arith_mean.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/arith_mean.sh)                   |
+| 2 | Finds the maximum value in a given array of numbers.                                                         | [max_array.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/max_array.sh)                     |
+| 3 | Finds the minimum value in a given array of numbers.                                                         | [min_array.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/min_array.sh)                     |
+| 4 | Removes duplicates from a given array of numbers.                                                            | [remove_duplicates_in_array.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicates_in_array.sh) |
+
+### Files
+
+| #  | Description                                                                                    | Code                                                                                                           |
+|----|------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| 1  | Counts the number of files in a specified directory.                                            | [count_files.sh](https://github.com/djeada/Bash-scripts/blob/master/src/count_files.sh)                       |
+| 2  | Creates a new directory with a specified name.                                                 | [make_dir.sh](https://github.com/djeada/Bash-scripts/blob/master/src/make_dir.sh)                             |
+| 3  | Counts the number of lines in a specified text file.                                           | [line_counter.sh](https://github.com/djeada/Bash-scripts/blob/master/src/line_counter.sh)                     |
+| 4  | Gets the middle line from a specified text file.                                               | [middle_line.sh](https://github.com/djeada/Bash-scripts/blob/master/src/middle_line.sh)                       |
+| 5  | Removes duplicate lines from a specified file.                                                 | [remove_duplicate_lines.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_duplicate_lines.sh) |
+| 6  | Replaces all forward slashes with backward slashes and vice versa in a specified file.        | [switch_slashes.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/switch_slashes.sh)                 |
+| 7  | Adds specified text to the beginning of a specified file.                                      | [prepend_text_to_file.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/prepend_text_to_file.sh)     |
+| 8  | Removes all lines in a specified file that contain only whitespaces.                           | [remove_empty_lines.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_empty_lines.sh)         |
+| 9  | Renames all files in a specified directory with a particular extension to a new extension.    | [rename_extension.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/rename_extension.sh)             |
+| 10 | Strips digits from every string found in a given file.                                          | [strip_digits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/strip_digits.sh)                     |
+| 11 | Lists the most recently modified files in a given directory.                                   | [recently_modified_files.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/recently_modified_files.sh) |
+| 12 | Ensures that files end with exactly one trailing newline, with optional check-only mode. | [last_line_empty.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/last_line_empty.sh) |
+| 13 | Removes repeated consecutive blank lines from files in a given directory. | [remove_consecutive_blank_lines.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_consecutive_blank_lines.sh) |
+| 14 | Recursively replaces all occurrences of a string with another across files in a directory. | [replace_everywhere.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/replace_everywhere.sh) |
+| 15 | Swaps the contents of two specified files with optional backup and safety checks. | [swap_files.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/swap_files.sh) |
+| 16 | Extracts a specified range of pages from a PDF file using Ghostscript. | [pdf_page_extractor.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/pdf_page_extractor.sh) |
+
+### System administration
+
+| #  | Description                                                                                                                           | Code                                                                                                             |
+|----|---------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| 1  | Displays detailed system information, with flags for memory, disk, CPU, network, processes, OS, kernel, filesystems, and load.      | [system_info.sh](https://github.com/djeada/Bash-scripts/blob/master/src/system_info.sh)                         |
+| 2  | Detects the host platform, distribution, and version, with optional JSON and logging output.                                         | [check_os.sh](https://github.com/djeada/Bash-scripts/blob/master/src/check_os.sh)                               |
+| 3  | Verifies whether the script is running with root privileges, with optional logging.                                                  | [check_if_root.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/check_if_root.sh)                     |
+| 4  | Verifies that the `apt` package manager is available on the current system.                                                           | [check_apt_avail.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/check_apt_avail.sh)                 |
+| 5  | Retrieves the size of the machine's random access memory (RAM).                                                                       | [ram_memory.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/ram_memory.sh)                           |
+| 6  | Gets the current temperature of the machine's central processing unit (CPU).                                                          | [cpu_temp.sh](https://github.com/djeada/Bash-scripts/blob/master/src/cpu_temp.sh)                               |
+| 7  | Retrieves the current overall CPU usage of the machine.                                                                               | [cpu_usage.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/cpu_usage.sh)                             |
+| 8  | Monitors network bandwidth in real time, highlights heavy usage, and can log or emit JSON reports.                                   | [network_bandwidth.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/network_bandwidth.sh)             |
+| 9  | Monitors CPU, memory, and disk usage on a schedule, logging issues and optionally sending email alerts.                              | [server_health_monitor.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/server_health_monitor.sh)     |
+| 10 | Blocks certain websites from being visited on the local machine by modifying the hosts file.                                          | [web_block.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/web_block.sh)                             |
+| 11 | Creates a backup of the system's files, compresses the backup, and encrypts the resulting archive for storage.                       | [backup.sh](https://github.com/djeada/Bash-scripts/blob/master/src/backup.sh)                                   |
+| 12 | Displays processes that are not being waited on by any parent process. Orphan processes are created when the parent process terminates. | [orphans.sh](https://github.com/djeada/Bash-scripts/blob/master/src/orphans.sh)                                 |
+| 13 | Displays processes that are in an undead state, also known as a "zombie" state. Zombie processes have completed execution but remain in the process table. | [zombies.sh](https://github.com/djeada/Bash-scripts/blob/master/src/zombies.sh)                                 |
+| 14 | Displays disk usage information with advanced filtering, sorting, and multiple output formats.                                        | [disk_usage.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/disk_usage.sh)                           |
+| 15 | Adjusts the system audio volume by percentage or predefined modes using PulseAudio.                                                   | [adjust_volume.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/adjust_volume.sh)                     |
+| 16 | Adds Signal Desktop's APT repository and installs the package on Debian-based systems.                                                | [install_signal.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/install_signal.sh)                   |
+| 17 | Installs the recommended NVIDIA driver on Ubuntu and checks Steam's desktop entry for GPU preference.                                 | [install_nvidia_and_prepare_steam.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/install_nvidia_and_prepare_steam.sh) |
+| 18 | Installs the XFCE desktop on Linux Mint and sets it as the default LightDM session.                                                   | [xfce-default.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/xfce-default.sh)                       |
+| 19 | Completely removes Node.js and npm, then reinstalls them from the distribution package manager or nodejs.org.                        | [purge_and_reinstall_nodejs.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_and_reinstall_nodejs.sh) |
+| 20 | Safely uninstalls user-installed Python pip packages while preserving essential system packages.                                      | [purge_pip.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_pip.sh)                             |
+
+### Programming workflow
+
+| # | Description                                                                                                                                                                                                                    | Code                                                                                                           |
+|---|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| 1 | Removes the carriage return character (`\r`) from the given files, which may be present in files transferred between systems with different line ending conventions.                                                            | [remove_carriage_return.sh](https://github.com/djeada/Bash-scripts/blob/master/src/remove_carriage_return.sh) |
+| 2 | Replaces all characters with diacritical marks in the given files with their non-diacritical counterparts. Diacritical marks are small signs added above or below letters to indicate different pronunciations or tones in some languages. | [remove_diacritics.sh](https://github.com/djeada/Bash-scripts/blob/master/src/remove_diacritics.sh)         |
+| 3 | Changes all spaces in file names to underscores and converts them to lowercase. This can be useful for making the file names more compatible with systems that do not support spaces in file names or for making the file names easier to read or type. | [correct_file_names.sh](https://github.com/djeada/Bash-scripts/blob/master/src/correct_file_names.sh)       |
+| 4 | Removes any trailing whitespace characters (spaces or tabs) from the end of every file in a given directory. Trailing whitespace can cause formatting issues or interfere with certain tools and processes.                             | [remove_trailing_whitespaces.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_trailing_whitespaces.sh) |
+| 5 | Formats and beautifies every shell script found in the current repository. This can make the scripts easier to read and maintain by adding consistent indentation and whitespace.                                                         | [beautify_script.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/beautify_script.sh)             |
+| 6 | Finds functions and classes in a Python project that are not being used or called anywhere in the code. This can help identify and remove unnecessary code, which can improve the project's performance and maintainability.           | [dead_code.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/dead_code.sh)                         |
+| 7 | Removes C and C++ style comments from source files using a finite state machine approach. | [strip_cpp_comments.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/strip_cpp_comments.sh) |
+| 8 | Removes comments and docstrings from Python files with options for backup, dry-run, and interactive mode. | [strip_python_comments.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/strip_python_comments.sh) |
+| 9 | Lists all repositories for a specified GitHub user, with pagination and private repository support via API token. | [fetch_github_repos_names.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/fetch_github_repos_names.sh) |
+| 10 | Automates Python package building, testing, and releasing to PyPI or TestPyPI. | [release_package.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/release_package.sh) |
+
+### Git
+
+| # | Description                                                                                                                                                                                                                                                                                                 | Code                                                                                                                      |
+|---|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| 1 | Resets the local repository to match the state of the remote repository, discarding any local commits and changes. This can be useful for starting over or synchronizing with the latest version on the remote repository.                                                                                           | [reset_to_origin.sh](https://github.com/djeada/Bash-scripts/blob/master/src/reset_to_origin.sh)                                        |
+| 2 | Deletes the specified branch both locally and on the remote repository. This can be useful for removing branches that are no longer needed or for consolidating multiple branches into a single branch.                                                                                                            | [remove_branch.sh](https://github.com/djeada/Bash-scripts/blob/master/src/remove_branch.sh)                                         |
+| 3 | Counts the total number of lines of code in a git repository, including lines in all branches and commits. This can be useful for tracking the size and complexity of a project over time.                                                                                                                  | [count_lines_of_code.sh](https://github.com/djeada/Bash-scripts/blob/master/src/count_lines_of_code.sh)                                    |
+| 4 | Combines multiple commits into a single commit. This can be useful for simplifying a commit history or for cleaning up a series of small, incremental commits that were made in error.                                                                                                                       | [squash_n_last_commits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/squash_n_last_commits.sh)                                 |
+| 5 | Removes the `n` last commits from the repository. This can be useful for undoing mistakes or for removing sensitive information that was accidentally committed.                                                                                                                                              | [remove_n_last_commits.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/remove_n_last_commits.sh)                                  |
+| 6 | Changes the date of the last commit in the repository. This can be useful for altering the commit history for cosmetic purposes.                                                                                                                                                                            | [change_commit_date.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/change_commit_date.sh)                                   |
+| 7 | Discovers GitHub repositories into an editable JSON or CSV manifest, then backs up the enabled repositories using mirror, clone, archive, or sparse modes with resumable state for cron jobs.                                                                                                                  | [download_all_github_repos.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/download_all_github_repos.sh)                            |
+| 8 | Squashes all commits on a specified Git branch into a single commit.                                                                                                                                                                              | [squash_branch.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/squash_branch.sh)                            |
+| 9 | Counts the total lines changed by a specific author in a Git repository.                                                                                                                                                                               | [contributions_by_git_author.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/contributions_by_git_author.sh)                            |
+  
+GitHub repository backups use a two-stage workflow:
+
+```bash
+./src/download_all_github_repos.sh discover --user alice --output repos.json
+./src/download_all_github_repos.sh backup --manifest repos.json --dest ~/github-backups --resume
+```
+
+Edit the generated manifest to disable repositories or choose per-repository modes. Use `mode: "mirror"` for full Git backups, `mode: "archive"` for HTTPS snapshots without Git history, and `mode: "sparse"` with `paths` for selected subdirectories.
+
+### Utility
+
+| # | Description | Code |
+|---|-------------|------|
+| 1	| Displays public and private IP details, optional geolocation data, and interface-specific addresses. | [ip_info.sh](https://github.com/djeada/Bash-scripts/blob/master/src/ip_info.sh) |
+| 2	| Deletes all files in the trash bin. | [empty_trash.sh](https://github.com/djeada/Bash-scripts/blob/master/src/empty_trash.sh) |
+| 3	| Extracts compressed archive files (tar, tar.gz, tar.bz2, zip, rar, 7z, bz2, gz, and more) to a specified output directory. | [extract.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/extract.sh) |
+| 4	| Determines which programs are currently using a specified port number on the local system. | [program_on_port.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/program_on_port.sh) |
+| 5	| Converts month names to numbers and vice versa in a string. For example, "January" to "1" and "1" to "January". | [month_to_number.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/month_to_number.sh) |
+| 6	| Creates command aliases for all the scripts in a specified directory, allowing them to be run by simply typing their names. | [alias_all_the_scripts.sh](https://github.com/djeada/Bash-scripts/blob/master/src/alias_all_the_scripts.sh) |
+| 7	| Generates a random integer within a given range. The range can be specified as arguments to the script. | [random_int.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/random_int.sh) |
+| 8	| Generates a random password of the specified length, using a combination of letters, numbers, and special characters. | [random_password.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/random_password.sh) |
+| 9	| Measures the time it takes to run a program with the specified input parameters. Output the elapsed time in seconds. | [time_execution.sh](https://github.com/djeada/Bash-scripts/blob/master/src/time_execution.sh) |
+| 10	| Downloads the audio from a YouTube video or playlist in MP3 format. Specify the video or playlist URL and the destination directory for the downloaded files. | [youtube_to_mp3.sh](https://github.com/djeada/Bash-scripts/blob/master/src/youtube_to_mp3.sh) |
+| 11	| Clears the local caches in the user's cache directory (e.g. `~/.cache`) that are older than a specified number of days. | [clear_cache.sh](https://github.com/djeada/Bash-scripts/blob/master/src/clear_cache.sh) |
+| 12 | Backs up Firefox profiles to a USB drive and restores them later with profile discovery and safety checks. | [firefox_profile_usb.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/firefox_profile_usb.sh) |
+| 13 | Resizes all JPG files in the current directory to a specified dimension (A4). | [resize_to_a4.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/resize_to_a4.sh) |
+| 14 | Fetches and displays current weather conditions for a specified city using the wttr.in service. | [display_weather.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/display_weather.sh) |
+| 15 | Converts Markdown files to PDF format with automatic page breaks and concatenation. | [generate_books.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/generate_books.sh) |
+| 16 | Displays an elapsed time counter in HH:MM:SS format, updated every second. | [timer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/timer.sh) |
+
+### Multimedia
+
+| # | Description | Code |
+|---|-------------|------|
+| 1 | Converts a video file to animated GIF format using ffmpeg. | [convert_to_gif.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/convert_to_gif.sh) |
+| 2 | Converts a video file to MP4 format using ffmpeg with comprehensive logging. | [convert_to_mp4.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/convert_to_mp4.sh) |
+| 3 | Converts a GIF file to MP4 format, scaling to specified dimensions. | [gif_to_mp4_converter.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/gif_to_mp4_converter.sh) |
+| 4 | Speeds up a video file by a specified multiplier using ffmpeg. | [speed_up_video.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/speed_up_video.sh) |
+| 5 | Extends video height by a scale factor, adding black padding on the top and bottom. | [extend_video_height.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/extend_video_height.sh) |
+| 6 | Stretches a video vertically by a scale factor with proportional padding. | [stretch_mp4_vertically.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/stretch_mp4_vertically.sh) |
+| 7 | Encodes videos to 9:16 vertical shorts format with cropping, padding, and speed adjustment options. | [make_short.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/make_short.sh) |
+
+## References
+
+### Official Documentation
+- [GNU Bash Manual](https://www.gnu.org/software/bash/manual/bash.html): The official documentation for GNU Bash, detailing built-in commands, syntax, and features.
+- [Linux Documentation Project](https://www.tldp.org/): Comprehensive collection of HOWTOs, guides, and FAQs for Linux users and administrators.
+
+### Guides and Tutorials
+- [Bash Guide by Greg's Wiki](http://mywiki.wooledge.org/BashGuide): An excellent resource for learning Bash scripting, written in an approachable and detailed manner.
+- [Advanced Bash-Scripting Guide](https://tldp.org/LDP/abs/html/): A thorough guide for mastering advanced Bash scripting techniques and best practices.
+- [Bash Hackers Wiki](https://wiki.bash-hackers.org/): In-depth explanations and tips for Bash scripting, focusing on practical usage and pitfalls.
+
+### Learning Platforms
+- [Codecademy's Learn the Command Line](https://www.codecademy.com/learn/learn-the-command-line): An interactive platform for beginners to learn basic command line skills.
+- [edX's Linux Foundation Courses](https://www.edx.org/school/linuxfoundationx): Online courses covering various aspects of Linux, including command line proficiency and system administration.
+
+### Community and Support
+- [Unix & Linux Stack Exchange](https://unix.stackexchange.com/): A Q&A site for users of Linux, FreeBSD, and other Un*x-like operating systems.
+- [Reddit's r/bash](https://www.reddit.com/r/bash/): A subreddit dedicated to discussions and questions about Bash scripting and shell programming.
+
+### Tools and Utilities
+- [ShellCheck](https://www.shellcheck.net/): An online tool that helps you find and fix bugs in your shell scripts.
+- [Explainshell](https://explainshell.com/): A web application that breaks down complex command lines into simple explanations.
+- [Oh My Zsh](https://ohmyz.sh/): A framework for managing your Zsh configuration, making it easier to customize your shell.
+
+### Books
+- "Learning the bash Shell" by Cameron Newham: A comprehensive guide to Bash programming, suitable for beginners and experienced users alike.
+- "Linux Command Line and Shell Scripting Bible" by Richard Blum and Christine Bresnahan: A detailed book covering Linux command line and shell scripting from the basics to advanced topics.
+- "Bash Cookbook" by Carl Albing, JP Vossen, and Cameron Newham: A collection of useful Bash scripting recipes for various tasks and problems.
+
+### Blogs and Articles
+- [Linux Journal's Bash Articles](https://www.linuxjournal.com/tag/bash): A series of articles covering various Bash scripting topics and tips.
+- [DigitalOcean's Bash Tutorials](https://www.digitalocean.com/community/tutorial_series/understanding-bash): Tutorials and guides to help you understand and use Bash effectively.
+- [Bash-One-Liners Explained](https://www.bashoneliners.com/): A collection of Bash one-liners, with explanations on how they work and when to use them.
+
+## How to Contribute
+
+We encourage contributions that enhance the repository's value. To contribute:
+
+1. Fork the repository.
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=djeada/Bash-Scripts&type=Date)](https://star-history.com/#djeada/Bash-Scripts&Date)
