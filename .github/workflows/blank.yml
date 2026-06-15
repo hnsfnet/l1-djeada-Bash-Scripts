@@ -35,6 +35,10 @@ jobs:
           sudo apt-get install python3-pip
           pip3 install beautysh
 
-      # Execute defined hooks
+      # Execute defined hooks.
+      # Uses the same entrypoint and default behavior as a local run
+      # (`./hooks/_run_all.sh` checks every hook against the 'src' directory),
+      # so CI and local results stay consistent.
       - name: Run all hooks
-        run: ${GITHUB_WORKSPACE}/hooks/_run_all.sh
+        working-directory: ${{ github.workspace }}
+        run: ./hooks/_run_all.sh

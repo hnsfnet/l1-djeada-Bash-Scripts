@@ -14,13 +14,58 @@ The hooks are designed to automatically check and fix common issues in bash scri
 
 ### Running All Hooks
 
-To run all hooks in check mode (without modifying files):
+`_run_all.sh` is the batch entrypoint. In its simplest form it runs every hook
+in check mode (without modifying files) against the repository's `src`
+directory:
 
 ```bash
 ./hooks/_run_all.sh
 ```
 
-This will execute all hooks with the `--check` option on the `src` directory. It will exit with status 1 if any checks fail.
+It prints a per-hook summary at the end and exits non-zero if anything failed.
+
+#### Choosing which paths to check
+
+Any positional arguments are treated as the files or directories to check, so
+you are no longer limited to `src`:
+
+```bash
+# Check a couple of specific directories
+./hooks/_run_all.sh src tests
+
+# Check a single file
+./hooks/_run_all.sh src/backup.sh
+```
+
+When no path is given it defaults to the repository's `src` directory.
+
+#### Selecting or excluding hooks
+
+Use `--include` to run only certain hooks, or `--exclude` to skip some (for
+example, the slower `beautify_script`). Both accept a comma-separated list
+and/or can be repeated, and names may be written with or without the `.sh`
+suffix:
+
+```bash
+# Only run the two fast whitespace checks
+./hooks/_run_all.sh --include remove_trailing_whitespaces,remove_carriage_return src
+
+# Run everything except the (slower) beautify hook
+./hooks/_run_all.sh --exclude beautify_script src
+
+# List the hooks that are available to include/exclude
+./hooks/_run_all.sh --list
+```
+
+Run `./hooks/_run_all.sh --help` for the full option list.
+
+#### Exit codes
+
+| Code | Meaning                                                        |
+|------|----------------------------------------------------------------|
+| `0`  | All selected checks passed on all paths.                       |
+| `1`  | At least one check failed.                                     |
+| `2`  | Usage error (unknown option, no matching hooks, invalid path). |
 
 ### Running Individual Hooks
 
@@ -86,13 +131,14 @@ This will automatically run all hooks before each commit. If any checks fail, th
 
 ## How It Works
 
-The scripts in this directory are actually symbolic links to the corresponding scripts in the `src` directory. This allows the same scripts to be used both as utility scripts and as hooks.
+The scripts in this directory are symbolic links to the corresponding scripts in the `src` directory. This allows the same scripts to be used both as utility scripts and as hooks.
 
 The `_run_all.sh` script:
-1. Finds all symbolic links in the `hooks` directory (excluding files starting with `_`)
-2. Executes each script with the `--check` flag
-3. Collects the exit status of all scripts
-4. Exits with status 1 if any check failed
+1. Discovers every hook in this directory (the `*.sh` entries that do **not** start with `_`)
+2. Resolves each one to the real script under `src` (following the symlink, or mapping `hooks/<name>.sh` to `src/<name>.sh` when the repository was checked out without symlink support), so it behaves the same locally and in CI
+3. Runs each selected hook with the `--check` flag against each requested path
+4. Prints a summary of which hooks ran, which checks failed, and the overall result
+5. Exits `0` when everything passed, `1` when a check failed, or `2` on a usage error
 
 ## Troubleshooting
 

@@ -584,6 +584,40 @@ Additionally we advise to use <a href="https://github.com/koalaman/shellcheck">s
 shellcheck **/*.sh
 ```
 
+### Running the quality-check hooks
+
+The `hooks/` directory bundles these checks (carriage returns, trailing
+whitespace, a single trailing empty line, plus Beautysh/ShellCheck) behind a
+single batch entrypoint, `hooks/_run_all.sh`. Run it in check mode to validate
+the whole `src` directory at once:
+
+```bash
+./hooks/_run_all.sh
+```
+
+You can point it at specific paths instead of the default, and include or
+exclude individual hooks (for example, to skip the slower `beautify_script`):
+
+```bash
+# Check only certain paths
+./hooks/_run_all.sh src/backup.sh src/clear_cache.sh
+
+# Run only the fast whitespace checks
+./hooks/_run_all.sh --include remove_trailing_whitespaces,remove_carriage_return src
+
+# Run everything except the beautify hook
+./hooks/_run_all.sh --exclude beautify_script src
+
+# List available hooks, or show all options
+./hooks/_run_all.sh --list
+./hooks/_run_all.sh --help
+```
+
+It prints a summary of which hooks ran and which checks failed, and exits `0`
+on success, `1` when a check fails, or `2` on a usage error. This is the same
+entrypoint (with the same defaults) used by the CI workflow, so local and CI
+results stay consistent. See [hooks/README.md](hooks/README.md) for details.
+
 ## Available scripts
  
 ### Intro
