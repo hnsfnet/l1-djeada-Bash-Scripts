@@ -685,6 +685,94 @@ shellcheck **/*.sh
 | 19 | Completely removes Node.js and npm, then reinstalls them from the distribution package manager or nodejs.org.                        | [purge_and_reinstall_nodejs.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_and_reinstall_nodejs.sh) |
 | 20 | Safely uninstalls user-installed Python pip packages while preserving essential system packages.                                      | [purge_pip.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/purge_pip.sh)                             |
 
+#### Backup configuration profiles
+
+`backup.sh` supports INI-style configuration files so you can define multiple
+reusable backup profiles in one place instead of typing long argument lists.
+
+Create a config file (e.g. `~/.backup.conf`):
+
+```ini
+[docs]
+source = ~/Documents
+source = ~/notes
+dest = /mnt/backups/docs
+exclude = *.tmp
+exclude = .git
+compress = true
+retention_daily = 7
+retention_weekly = 4
+retention_monthly = 3
+
+[photos]
+source = ~/Pictures
+dest = /mnt/backups/photos
+compress = true
+retention_daily = 3
+retention_weekly = 2
+retention_monthly = 6
+
+[server-config]
+source = /etc
+source = /var/lib/docker-compose
+dest = /mnt/backups/server
+compress = true
+encrypt = true
+gpg_passphrase_file = /root/.backup.pass
+retention_daily = 14
+retention_weekly = 8
+retention_monthly = 6
+```
+
+Run a profile:
+
+```bash
+./src/backup.sh --profile docs --config ~/.backup.conf --auto
+```
+
+Preview what a profile would do without touching anything:
+
+```bash
+./src/backup.sh --profile photos --config ~/.backup.conf --dry-run
+```
+
+Override profile values from the command line (e.g. send to a temporary
+destination, or add an extra source on the fly):
+
+```bash
+./src/backup.sh --profile docs --config ~/.backup.conf --auto --dest /tmp/emergency-backup
+./src/backup.sh --profile docs --config ~/.backup.conf --auto --source ~/extra-dir
+```
+
+If `--config` is omitted, the script looks for `~/.backup.conf` and then
+`/etc/backup.conf`.
+
+**Supported profile keys:**
+
+| Key | Description |
+|---|---|
+| `source` | Source file or directory (repeat for multiple) |
+| `dest` | Backup destination directory |
+| `exclude` | rsync exclude pattern (repeat for multiple) |
+| `compress` | `true` to create `.tar.gz` |
+| `encrypt` | `true` to enable GPG symmetric encryption |
+| `gpg_passphrase` | Inline passphrase (prefer `gpg_passphrase_file`) |
+| `gpg_passphrase_file` | Path to a file containing the passphrase |
+| `retention_daily` | Keep all backups from the last N days |
+| `retention_weekly` | Then keep one per week for N weeks |
+| `retention_monthly` | Then keep one per month for N months |
+
+Lines starting with `#` or `;` are treated as comments. Missing optional keys
+fall back to the script defaults. If a required key (`dest`, at least one
+`source`) is missing from the profile and not supplied on the command line, the
+script exits with a clear error message.
+
+Cron example:
+
+```bash
+0 3 * * * /path/to/backup.sh --profile docs --config /home/user/.backup.conf --auto --no-color
+```
+
 ### Programming workflow
 
 | # | Description                                                                                                                                                                                                                    | Code                                                                                                           |

@@ -2,12 +2,15 @@
 
 # Script Name: backup.sh
 # Description: Creates reliable filesystem backups with optional compression,
-#              symmetric GPG encryption, retention cleanup, and an interactive
-#              menu for ad-hoc or cron-friendly usage.
+#              symmetric GPG encryption, retention cleanup, configuration
+#              profiles, dry-run preview, and an interactive menu for ad-hoc
+#              or cron-friendly usage.
 # Usage:
 #   ./backup.sh
 #   ./backup.sh --auto --source "$HOME/Documents" --dest /mnt/backups --compress
 #   ./backup.sh --auto --dest /mnt/backups --exclude '*.cache' --retention-daily 14
+#   ./backup.sh --profile docs --config ~/.backup.conf --auto
+#   ./backup.sh --profile photos --config ~/.backup.conf --dry-run
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -44,6 +47,9 @@ BACKUP_REQUESTED=false
 QUIET=false
 VERBOSE=false
 NO_COLOR=false
+DRY_RUN=false
+CONFIG_FILE=""
+PROFILE_NAME=""
 
 CURRENT_ARTIFACT=""
 LOCK_DIR=""
@@ -116,6 +122,139 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 ###############################################################################
+# Configuration file support
+###############################################################################
+config_strip_comment() {
+    local line="$1"
+    # Remove inline comments (# or ;) that are not inside quotes
+    local in_single=false in_double=false i char result=""
+    for (( i=0; i<${#line}; i++ )); do
+        char="${line:$i:1}"
+        if [[ "$char" == "'" && "$in_double" == false ]]; then
+            in_single=$([[ "$in_single" == true ]] && echo false || echo true)
+        elif [[ "$char" == '"' && "$in_single" == false ]]; then
+            in_double=$([[ "$in_double" == true ]] && echo false || echo true)
+        elif [[ "$char" == "#" || "$char" == ";" ]] && [[ "$in_single" == false && "$in_double" == false ]]; then
+            break
+        fi
+        result+="$char"
+    done
+    printf '%s' "$result"
+}
+
+expand_path_value() {
+    local val="$1"
+    # Expand leading ~ to $HOME
+    if [[ "$val" == "~" ]]; then
+        val="$HOME"
+    elif [[ "$val" == "~/"* ]]; then
+        val="$HOME/${val:2}"
+    fi
+    printf '%s' "$val"
+}
+
+config_add_source() {
+    local val="$1"
+    val="$(config_strip_comment "$val")"
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    # Strip optional surrounding quotes
+    if [[ ${#val} -ge 2 ]]; then
+        if [[ "$val" == \"*\" ]]; then val="${val:1:${#val}-2}"; fi
+        if [[ "$val" == \'*\' ]]; then val="${val:1:${#val}-2}"; fi
+    fi
+    val="$(expand_path_value "$val")"
+    [[ -n "$val" ]] && SOURCE_DIRS+=("$val")
+}
+
+config_add_exclude() {
+    local val="$1"
+    val="$(config_strip_comment "$val")"
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    if [[ ${#val} -ge 2 ]]; then
+        if [[ "$val" == \"*\" ]]; then val="${val:1:${#val}-2}"; fi
+        if [[ "$val" == \'*\' ]]; then val="${val:1:${#val}-2}"; fi
+    fi
+    [[ -n "$val" ]] && EXCLUDE_PATTERNS+=("$val")
+}
+
+config_set_scalar() {
+    local key="$1" val="$2"
+    val="$(config_strip_comment "$val")"
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    if [[ ${#val} -ge 2 ]]; then
+        if [[ "$val" == \"*\" ]]; then val="${val:1:${#val}-2}"; fi
+        if [[ "$val" == \'*\' ]]; then val="${val:1:${#val}-2}"; fi
+    fi
+    val="$(expand_path_value "$val")"
+    case "$key" in
+        dest|destination)       TARGET_DIR="$val" ;;
+        compress)               COMPRESS="$val" ;;
+        encrypt)                ENCRYPT="$val" ;;
+        gpg_passphrase)         GPG_PASSPHRASE="$val" ;;
+        gpg_passphrase_file)    GPG_PASSPHRASE_FILE="$val" ;;
+        retention_daily)        RETENTION_DAILY="$val" ;;
+        retention_weekly)       RETENTION_WEEKLY="$val" ;;
+        retention_monthly)      RETENTION_MONTHLY="$val" ;;
+    esac
+}
+
+load_profile() {
+    local config_file="$1"
+    local profile="$2"
+    local in_target=false current_section="" line key val
+
+    [[ -f "$config_file" ]] || die "Config file not found: $config_file"
+    [[ -r "$config_file" ]] || die "Cannot read config file: $config_file"
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Strip leading/trailing whitespace
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+
+        # Skip blank lines and comment-only lines
+        [[ -z "$line" ]] && continue
+        [[ "$line" == "#"* ]] && continue
+        [[ "$line" == ";"* ]] && continue
+
+        # Section header [profile_name]
+        if [[ "$line" =~ ^\[([a-zA-Z0-9_-]+)\]$ ]]; then
+            current_section="${BASH_REMATCH[1]}"
+            if [[ "$current_section" == "$profile" ]]; then
+                in_target=true
+            elif [[ "$in_target" == true ]]; then
+                # We've left the target section; stop parsing
+                break
+            fi
+            continue
+        fi
+
+        if [[ "$in_target" == true ]] && [[ "$line" == *"="* ]]; then
+            key="${line%%=*}"
+            val="${line#*=}"
+            # Trim key
+            key="${key#"${key%%[![:space:]]*}"}"
+            key="${key%"${key##*[![:space:]]}"}"
+            # Lowercase / normalize key
+            key="${key,,}"
+            key="${key// /_}"
+            key="${key//-/_}"
+
+            case "$key" in
+                source|sources)  config_add_source "$val" ;;
+                exclude|excludes) config_add_exclude "$val" ;;
+                *)               config_set_scalar "$key" "$val" ;;
+            esac
+        fi
+    done <"$config_file"
+
+    [[ "$in_target" == true ]] || die "Profile '$profile' not found in config file: $config_file"
+    log_msg INFO "Loaded profile '$profile' from $config_file"
+}
+
+###############################################################################
 # Usage
 ###############################################################################
 print_usage() {
@@ -123,13 +262,20 @@ print_usage() {
 Usage:
   $SCRIPT_NAME
   $SCRIPT_NAME --auto [options]
+  $SCRIPT_NAME --profile NAME --config FILE [--auto] [options]
+  $SCRIPT_NAME --profile NAME --config FILE --dry-run [options]
 
 Options:
+  --config FILE                 Path to a configuration file containing profiles.
+  --profile NAME                Name of the profile to load from the config file.
   --source PATH                 Add a source file or directory to the backup.
                                 Can be used multiple times. Defaults to:
                                 ${DEFAULT_SOURCE_DIRS[*]}
+                                When used with a profile, sources are additive.
   --dest DIR                    Backup destination root directory.
+                                Overrides the profile value if both are given.
   --exclude PATTERN             rsync exclude pattern. Can be used multiple times.
+                                When used with a profile, excludes are additive.
   --compress                    Package the backup as .tar.gz.
   --encrypt                     Encrypt the final artifact with symmetric GPG.
   --gpg-passphrase VALUE        Passphrase for --encrypt.
@@ -137,16 +283,31 @@ Options:
   --retention-daily N           Keep all backups from the last N days. Default: $RETENTION_DAILY
   --retention-weekly N          Then keep one backup per week for N weeks. Default: $RETENTION_WEEKLY
   --retention-monthly N         Then keep one backup per month for N months. Default: $RETENTION_MONTHLY
+  --dry-run                     Preview what would happen without writing anything.
   --auto                        Run non-interactively.
   -q, --quiet                   Hide informational logs.
   -v, --verbose                 Print debug logs.
       --no-color                Disable colored log labels.
   -h, --help                    Show this help message.
 
+Config file format (INI-style):
+  [profile_name]
+  source = /path/to/dir
+  source = /another/path
+  dest = /backup/destination
+  exclude = *.tmp
+  compress = true
+  retention_daily = 7
+  retention_weekly = 4
+  retention_monthly = 3
+
 Examples:
   $SCRIPT_NAME --auto --dest /mnt/backups
   $SCRIPT_NAME --auto --source "\$HOME/Documents" --source "\$HOME/Pictures" --dest /mnt/backups --compress
   $SCRIPT_NAME --auto --dest /mnt/backups --compress --encrypt --gpg-passphrase-file ~/.config/backup.pass
+  $SCRIPT_NAME --profile docs --config ~/.backup.conf --auto
+  $SCRIPT_NAME --profile photos --config ~/.backup.conf --dry-run
+  $SCRIPT_NAME --profile docs --config ~/.backup.conf --auto --dest /tmp/override
 EOF
 }
 
@@ -246,7 +407,9 @@ validate_configuration() {
     require_command mktemp
 
     [[ -n "$TARGET_DIR" ]] || die "Backup destination is required."
-    mkdir -p -- "$TARGET_DIR"
+    if [[ "$DRY_RUN" != true ]]; then
+        mkdir -p -- "$TARGET_DIR"
+    fi
 
     validate_retention_value "Daily retention" "$RETENTION_DAILY"
     validate_retention_value "Weekly retention" "$RETENTION_WEEKLY"
@@ -685,6 +848,138 @@ create_backup() {
 }
 
 ###############################################################################
+# Dry-run mode
+###############################################################################
+run_dry_run() {
+    local source pattern
+    local target_dir now_epoch daily_cutoff weekly_cutoff monthly_cutoff
+    local item name base_name stamp epoch week_key month_key
+    local -a candidates=() entries=()
+    declare -A kept_weeks=()
+    declare -A kept_months=()
+
+    validate_configuration
+    load_defaults_if_needed
+
+    [[ ${#SOURCE_DIRS[@]} -gt 0 ]] || die "At least one source file or directory is required."
+
+    if [[ -n "$PROFILE_NAME" ]]; then
+        log_msg INFO "[dry-run] Using profile: $PROFILE_NAME"
+    fi
+
+    log_msg INFO "[dry-run] Source directories:"
+    for source in "${SOURCE_DIRS[@]}"; do
+        if [[ -e "$source" ]]; then
+            log_msg INFO "[dry-run]   $source (exists)"
+        else
+            log_msg INFO "[dry-run]   $source (would be skipped — does not exist)"
+        fi
+    done
+
+    log_msg INFO "[dry-run] Destination: $TARGET_DIR"
+    if [[ -d "$TARGET_DIR" ]]; then
+        log_msg INFO "[dry-run]   (directory exists)"
+    else
+        log_msg INFO "[dry-run]   (directory would be created)"
+    fi
+
+    if [[ ${#EXCLUDE_PATTERNS[@]} -gt 0 ]]; then
+        log_msg INFO "[dry-run] Exclude patterns:"
+        for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+            log_msg INFO "[dry-run]   $pattern"
+        done
+    else
+        log_msg INFO "[dry-run] Exclude patterns: (none)"
+    fi
+
+    log_msg INFO "[dry-run] Compression: $COMPRESS"
+    log_msg INFO "[dry-run] Encryption: $ENCRYPT"
+
+    if [[ "$ENCRYPT" == true ]]; then
+        if [[ -n "$GPG_PASSPHRASE_FILE" ]]; then
+            if [[ -f "$GPG_PASSPHRASE_FILE" ]]; then
+                log_msg INFO "[dry-run] GPG passphrase file: $GPG_PASSPHRASE_FILE (exists)"
+            else
+                log_msg WARN "[dry-run] GPG passphrase file: $GPG_PASSPHRASE_FILE (not found — would fail)"
+            fi
+        elif [[ -n "$GPG_PASSPHRASE" ]]; then
+            log_msg INFO "[dry-run] GPG passphrase: (provided)"
+        else
+            log_msg WARN "[dry-run] GPG passphrase: not set — would fail"
+        fi
+    fi
+
+    log_msg INFO "[dry-run] Retention — daily: ${RETENTION_DAILY}d, weekly: ${RETENTION_WEEKLY}w, monthly: ${RETENTION_MONTHLY}m"
+
+    # Show what retention cleanup would do
+    if [[ -d "$TARGET_DIR" ]] && \
+       ! (( RETENTION_DAILY == 0 && RETENTION_WEEKLY == 0 && RETENTION_MONTHLY == 0 )); then
+        now_epoch="$(date -u +%s)"
+        daily_cutoff=$(( now_epoch - (RETENTION_DAILY * 86400) ))
+        weekly_cutoff=$(( now_epoch - (RETENTION_WEEKLY * 7 * 86400) ))
+        monthly_cutoff=$(( now_epoch - (RETENTION_MONTHLY * 31 * 86400) ))
+
+        while IFS= read -r item; do
+            [[ -n "$item" ]] && candidates+=("$item")
+        done < <(find "$TARGET_DIR" -mindepth 1 -maxdepth 1 \( -type f -o -type d \) -name 'backup_*' -printf '%f\n' 2>/dev/null)
+
+        if [[ ${#candidates[@]} -gt 0 ]]; then
+            for name in "${candidates[@]}"; do
+                base_name="$(backup_base_name "$name")"
+                stamp="${base_name#backup_}"
+                stamp="${stamp%%_*}"
+                [[ "$stamp" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || continue
+                epoch="$(timestamp_to_epoch "$stamp")"
+                entries+=("${epoch}"$'\t'"${name}")
+            done
+
+            if [[ ${#entries[@]} -gt 0 ]]; then
+                local would_remove=0
+                mapfile -t entries < <(printf '%s\n' "${entries[@]}" | sort -r)
+                for item in "${entries[@]}"; do
+                    epoch="${item%%$'\t'*}"
+                    name="${item#*$'\t'}"
+                    if (( RETENTION_DAILY > 0 )) && (( epoch >= daily_cutoff )); then
+                        continue
+                    fi
+                    if (( RETENTION_WEEKLY > 0 )) && (( epoch >= weekly_cutoff )); then
+                        week_key="$(date -u -d "@$epoch" +%G-%V)"
+                        if [[ -z "${kept_weeks[$week_key]+x}" ]]; then
+                            kept_weeks[$week_key]=1
+                            continue
+                        fi
+                    fi
+                    if (( RETENTION_MONTHLY > 0 )) && (( epoch >= monthly_cutoff )); then
+                        month_key="$(date -u -d "@$epoch" +%Y-%m)"
+                        if [[ -z "${kept_months[$month_key]+x}" ]]; then
+                            kept_months[$month_key]=1
+                            continue
+                        fi
+                    fi
+                    log_msg INFO "[dry-run] Would remove expired backup: ${TARGET_DIR%/}/$name"
+                    would_remove=$((would_remove + 1))
+                done
+                if (( would_remove == 0 )); then
+                    log_msg INFO "[dry-run] Retention policy: no existing backups would be removed"
+                else
+                    log_msg INFO "[dry-run] Retention policy: $would_remove backup(s) would be removed"
+                fi
+            else
+                log_msg INFO "[dry-run] Retention policy: no recognized backups found"
+            fi
+        else
+            log_msg INFO "[dry-run] Retention policy: no existing backups to evaluate"
+        fi
+    elif [[ ! -d "$TARGET_DIR" ]]; then
+        log_msg INFO "[dry-run] Retention policy: destination does not exist yet, nothing to clean"
+    else
+        log_msg INFO "[dry-run] Retention disabled; all existing backups would be kept."
+    fi
+
+    log_msg INFO "[dry-run] No files were created, modified, or deleted."
+}
+
+###############################################################################
 # Cron helper
 ###############################################################################
 configure_cron_job() {
@@ -845,6 +1140,20 @@ parse_args() {
                 AUTO_MODE=true
                 shift
                 ;;
+            --config)
+                [[ -n "${2-}" ]] || die "--config requires a file path."
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --profile)
+                [[ -n "${2-}" ]] || die "--profile requires a name."
+                PROFILE_NAME="$2"
+                shift 2
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                shift
+                ;;
             -q|--quiet)
                 QUIET=true
                 shift
@@ -926,9 +1235,52 @@ main_menu() {
 ###############################################################################
 # Entry point
 ###############################################################################
+# Phase 1: Quick pre-parse to find --config and --profile only.
+# Profile values become the baseline; full CLI parsing below overrides them.
+_pre_args() {
+    local args=("$@")
+    local i=0
+    while (( i < ${#args[@]} )); do
+        case "${args[$i]}" in
+            --config)
+                CONFIG_FILE="${args[$((i+1))]:-}"
+                i=$((i + 2))
+                ;;
+            --profile)
+                PROFILE_NAME="${args[$((i+1))]:-}"
+                i=$((i + 2))
+                ;;
+            *)
+                i=$((i + 1))
+                ;;
+        esac
+    done
+}
+_pre_args "$@"
+
+if [[ -n "$PROFILE_NAME" ]]; then
+    if [[ -z "$CONFIG_FILE" ]]; then
+        if [[ -f "$HOME/.backup.conf" ]]; then
+            CONFIG_FILE="$HOME/.backup.conf"
+        elif [[ -f "/etc/backup.conf" ]]; then
+            CONFIG_FILE="/etc/backup.conf"
+        else
+            die "--profile requires --config FILE (or place config at ~/.backup.conf)"
+        fi
+    fi
+    load_profile "$CONFIG_FILE" "$PROFILE_NAME"
+fi
+
+# Phase 2: Full argument parsing. CLI values override profile defaults.
 parse_args "$@"
 
-if [[ "$AUTO_MODE" == true || "$BACKUP_REQUESTED" == true ]]; then
+if [[ "$DRY_RUN" == true ]]; then
+    load_defaults_if_needed
+    run_dry_run
+    exit 0
+fi
+
+if [[ "$AUTO_MODE" == true || "$BACKUP_REQUESTED" == true || -n "$PROFILE_NAME" ]]; then
     load_defaults_if_needed
     create_backup
     exit 0
