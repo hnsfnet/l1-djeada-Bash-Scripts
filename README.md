@@ -586,6 +586,19 @@ shellcheck **/*.sh
 
 ## Available scripts
  
+### Finding a script
+
+With this many scripts in `src/`, scrolling the tables below is not always the quickest way to find the one you need. The [find_script.sh](https://github.com/djeada/Bash-scripts/blob/master/src/find_script.sh) helper searches the scripts in `src/` by name or by keywords in their description and prints the matches ranked by relevance:
+
+```bash
+./src/find_script.sh backup      # find backup-related scripts
+./src/find_script.sh weather     # jump straight to the weather script
+./src/find_script.sh line        # everything that deals with lines
+./src/find_script.sh --all file  # show every match for a broad keyword
+```
+
+It reads the metadata straight from each script's header, so any new script you drop into `src/` becomes searchable immediately — there is no separate list to maintain. When exactly one script matches, its full usage and an example are printed; a broad or unknown keyword returns a helpful hint instead of silent output. Run `./src/find_script.sh --help` for all options.
+
 ### Intro
 
 | # | Description                                                         | Code                                                                                     |
@@ -743,6 +756,7 @@ Edit the generated manifest to disable repositories or choose per-repository mod
 | 14 | Fetches and displays current weather conditions for a specified city using the wttr.in service. | [display_weather.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/display_weather.sh) |
 | 15 | Converts Markdown files to PDF format with automatic page breaks and concatenation. | [generate_books.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/generate_books.sh) |
 | 16 | Displays an elapsed time counter in HH:MM:SS format, updated every second. | [timer.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/timer.sh) |
+| 17 | Searches the repository's scripts by name or description keyword and prints ranked matches, with full usage and an example when a single script matches. | [find_script.sh](https://github.com/djeada/Bash-Scripts/blob/master/src/find_script.sh) |
 
 ### Multimedia
 
